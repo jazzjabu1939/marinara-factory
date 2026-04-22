@@ -313,6 +313,17 @@
     <strong>📊 Marginal Cost:</strong> Each additional jar costs <strong id="mcPerJar">$1.50</strong> to produce.
   </div>
 
+  <div class="explainer" style="margin-top:.75rem; font-family: monospace; font-size:.9rem; line-height:1.8;">
+    <strong style="font-family:sans-serif;">📐 The Cost Equation:</strong><br>
+    <span id="costEquation">
+      <span style="color:#f0a500">Total Cost</span> = Fixed Costs + (Variable Cost &times; Quantity)<br>
+      <span style="color:#aaa">TC = $2,000 + ($1.50 &times; Q)</span> &nbsp;&nbsp;<em style="color:#666">when Q &le; 1,000 jars</em><br>
+      <span style="color:#e74c3c">TC = $2,000 + $1,500 + ($1.75 &times; Q)</span> &nbsp;&nbsp;<em style="color:#666">when Q &gt; 1,000 jars (expansion + overtime)</em>
+    </span><br><br>
+    <strong style="font-family:sans-serif;">For your production of <span id="eqQty">0</span> jars:</strong><br>
+    <span id="eqBreakdown" style="color:#2ecc71;">Enter a quantity above to see the breakdown.</span>
+  </div>
+
   <!-- Chart -->
   <div class="chart-container">
     <canvas id="costChart"></canvas>
@@ -516,12 +527,20 @@ function update(q) {
   if (q <= 0) {
     mcPerJar.textContent = '$0.00';
     explainer.innerHTML = '<strong>📊 Marginal Cost:</strong> Produce some jars to see the economics!';
+    document.getElementById('eqQty').textContent = '0';
+    document.getElementById('eqBreakdown').innerHTML = 'Enter a quantity above to see the breakdown.';
   } else if (q <= BASE_CAPACITY) {
     mcPerJar.textContent = '$' + VAR_COST.toFixed(2);
     explainer.innerHTML = `<strong>📊 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST.toFixed(2)}</strong> to produce. You're within base capacity — no extra equipment needed.`;
+    document.getElementById('eqQty').textContent = qty;
+    document.getElementById('eqBreakdown').style.color = '#2ecc71';
+    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + ($1.50 × ${qty}) = <strong>$${totalCost.toLocaleString()}</strong>`;
   } else {
     mcPerJar.textContent = '$' + VAR_COST_OVERTIME.toFixed(2);
     explainer.innerHTML = `<strong>🚨 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST_OVERTIME.toFixed(2)}</strong> (overtime rate!) plus a one-time <strong>$${EXPANSION_COST.toLocaleString()}</strong> equipment expansion cost. This is the capacity jump!`;
+    document.getElementById('eqQty').textContent = qty;
+    document.getElementById('eqBreakdown').style.color = '#e74c3c';
+    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + $1,500 + ($1.75 × ${qty}) = <strong>$${totalCost.toLocaleString()}</strong><br><em>Fixed + Expansion + Variable (overtime rate)</em>`;
   }
 
   // Update chart marker
