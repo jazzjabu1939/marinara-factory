@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marinara Factory — Marginal Cost Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --umass-maroon: #881c1c;
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #f0a500;
+    --accent2: #cf7500;
+    --text: #e8e8e8;
+    --green: #2ecc71;
+    --red: #e74c3c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  header {
+    background: var(--umass-maroon);
+    padding: 1rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+  header h1 { font-size: 1.8rem; letter-spacing: 2px; text-transform: uppercase; }
+  header h1 span { color: var(--accent); }
+  header p { font-size: .85rem; opacity: .85; margin-top: .25rem; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 1rem; }
+
+  /* Factory Animation */
+  .factory-scene {
+    background: #0f0f23;
+    border: 2px solid #333;
+    border-radius: 12px;
+    height: 200px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .factory-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #1a1a3a 0%, #0f0f23 100%);
+  }
+  /* Building */
+  .building {
+    position: absolute; bottom: 40px; left: 10%; width: 35%; height: 120px;
+    background: #2a2a4a; border-radius: 8px 8px 0 0;
+    border: 2px solid #444;
+  }
+  .building::before {
+    content: '🏭'; font-size: 2rem; position: absolute; top: 8px; left: 50%;
+    transform: translateX(-50%);
+  }
+  .building-sign {
+    position: absolute; top: 45px; left: 50%; transform: translateX(-50%);
+    background: var(--umass-maroon); color: #fff; padding: 2px 10px;
+    border-radius: 4px; font-size: .65rem; font-weight: bold;
+    white-space: nowrap;
+  }
+  /* Windows */
+  .window {
+    position: absolute; width: 20px; height: 20px; background: #f0a50066;
+    border: 1px solid #555; border-radius: 2px;
+  }
+  .window.lit { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .w1 { bottom: 25px; left: 15%; }
+  .w2 { bottom: 25px; left: 35%; }
+  .w3 { bottom: 25px; left: 55%; }
+  .w4 { bottom: 55px; left: 25%; }
+  .w5 { bottom: 55px; left: 45%; }
+
+  /* Steam */
+  .steam-container { position: absolute; top: 0; left: 22%; width: 60px; height: 80px; }
+  .steam {
+    position: absolute; bottom: 0; width: 14px; height: 14px;
+    background: rgba(200,200,200,.3); border-radius: 50%;
+    animation: steam-rise 2s ease-out infinite;
+  }
+  .steam:nth-child(2) { left: 15px; animation-delay: .5s; }
+  .steam:nth-child(3) { left: 30px; animation-delay: 1s; }
+  .steam:nth-child(4) { left: 8px; animation-delay: 1.5s; }
+  @keyframes steam-rise {
+    0% { transform: translateY(0) scale(1); opacity: .6; }
+    100% { transform: translateY(-70px) scale(2.5); opacity: 0; }
+  }
+
+  /* Conveyor */
+  .conveyor {
+    position: absolute; bottom: 30px; left: 45%; right: 5%;
+    height: 12px; background: #444; border-radius: 6px;
+    border: 1px solid #555; overflow: hidden;
+  }
+  .conveyor-belt {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      90deg, #555 0px, #555 10px, #666 10px, #666 20px
+    );
+    animation: belt-move 2s linear infinite;
+  }
+  @keyframes belt-move { to { transform: translateX(-20px); } }
+
+  /* Jars on conveyor */
+  .jar-track {
+    position: absolute; bottom: 42px; left: 45%; right: 5%;
+    height: 30px; overflow: hidden;
+  }
+  .jar {
+    position: absolute; bottom: 0; font-size: 1.2rem;
+    animation: jar-move 3s linear infinite;
+  }
+  @keyframes jar-move {
+    0% { transform: translateX(0); opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateX(calc(100vw * .4)); opacity: 0; }
+  }
+
+  /* Workers */
+  .workers { position: absolute; bottom: 42px; left: 12%; display: flex; gap: 18px; }
+  .worker { font-size: 1.3rem; animation: worker-bob 1s ease-in-out infinite alternate; }
+  .worker:nth-child(2) { animation-delay: .3s; }
+  .worker:nth-child(3) { animation-delay: .6s; }
+
+  @keyframes worker-bob {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-4px); }
+  }
+
+  /* Warning light */
+  .warning-light {
+    position: absolute; top: 10px; right: 15px;
+    font-size: 1.8rem; opacity: 0; transition: opacity .3s;
+  }
+  .warning-light.active {
+    opacity: 1;
+    animation: flash-warn .5s ease-in-out infinite alternate;
+  }
+  @keyframes flash-warn { 0% { opacity: .4; } 100% { opacity: 1; } }
+
+  .capacity-warning {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    background: var(--red); color: #fff; padding: 4px 16px;
+    border-radius: 6px; font-weight: bold; font-size: .8rem;
+    opacity: 0; transition: opacity .3s; white-space: nowrap;
+  }
+  .capacity-warning.active { opacity: 1; animation: flash-warn .5s ease-in-out infinite alternate; }
+
+  /* Controls */
+  .controls {
+    background: var(--panel); border-radius: 12px; padding: 1.2rem;
+    margin-bottom: 1rem; border: 1px solid #333;
+  }
+  .controls label {
+    display: block; font-weight: bold; margin-bottom: .5rem;
+    color: var(--accent); font-size: .95rem;
+  }
+  .input-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .input-row input[type=range] {
+    flex: 1; min-width: 180px; accent-color: var(--accent);
+    height: 8px; cursor: pointer;
+  }
+  .input-row input[type=number] {
+    width: 100px; padding: .5rem; border-radius: 8px;
+    border: 2px solid #444; background: #0f0f23; color: var(--text);
+    font-size: 1.1rem; text-align: center;
+  }
+  .input-row input[type=number]:focus { border-color: var(--accent); outline: none; }
+  .btn-reset {
+    margin-top: .75rem; padding: .5rem 1.5rem;
+    background: var(--umass-maroon); color: #fff; border: none;
+    border-radius: 8px; cursor: pointer; font-weight: bold;
+    transition: background .2s;
+  }
+  .btn-reset:hover { background: #a02525; }
+
+  /* Metrics */
+  .metrics {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: .75rem; margin-bottom: 1rem;
+  }
+  .metric {
+    background: var(--panel); border-radius: 12px; padding: 1rem;
+    border: 1px solid #333; position: relative; text-align: center;
+  }
+  .metric-label {
+    font-size: .75rem; text-transform: uppercase; letter-spacing: 1px;
+    color: #999; margin-bottom: .25rem;
+  }
+  .metric-value { font-size: 1.6rem; font-weight: bold; }
+  .metric .tooltip {
+    display: none; position: absolute; bottom: 100%; left: 50%;
+    transform: translateX(-50%); background: #333; color: #fff;
+    padding: 6px 10px; border-radius: 6px; font-size: .7rem;
+    width: max-content; max-width: 220px; z-index: 10;
+    pointer-events: none;
+  }
+  .metric:hover .tooltip { display: block; }
+
+  .profit-positive { color: var(--green); }
+  .profit-negative { color: var(--red); }
+
+  /* Marginal cost explainer */
+  .explainer {
+    background: var(--panel); border-radius: 12px; padding: 1rem 1.2rem;
+    margin-bottom: 1rem; border-left: 4px solid var(--accent);
+    font-size: .9rem; line-height: 1.5;
+  }
+  .explainer strong { color: var(--accent); }
+
+  /* Chart */
+  .chart-container {
+    background: var(--panel); border-radius: 12px; padding: 1rem;
+    border: 1px solid #333; margin-bottom: 1rem;
+  }
+  .chart-container canvas { max-height: 320px; }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 1.5rem 1rem;
+    font-size: .8rem; color: #777;
+    border-top: 1px solid #333; margin-top: 1rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.3rem; }
+    .factory-scene { height: 160px; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .metric-value { font-size: 1.2rem; }
+    .building { left: 3%; width: 40%; }
+    .conveyor, .jar-track { left: 43%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍅 <span>Marinara Factory</span> 🏭</h1>
+  <p>Marginal Cost Simulator — How many jars should you produce?</p>
+</header>
+
+<div class="container">
+  <!-- Factory Animation -->
+  <div class="factory-scene" id="factoryScene">
+    <div class="factory-bg"></div>
+    <div class="building">
+      <div class="building-sign">MARINARA CO.</div>
+      <div class="window w1"></div>
+      <div class="window w2"></div>
+      <div class="window w3"></div>
+      <div class="window w4"></div>
+      <div class="window w5"></div>
+    </div>
+    <div class="steam-container" id="steamContainer">
+      <div class="steam"></div>
+      <div class="steam"></div>
+      <div class="steam"></div>
+      <div class="steam"></div>
+    </div>
+    <div class="workers" id="workers">
+      <div class="worker">👷</div>
+      <div class="worker">👷‍♀️</div>
+    </div>
+    <div class="conveyor"><div class="conveyor-belt" id="conveyorBelt"></div></div>
+    <div class="jar-track" id="jarTrack"></div>
+    <div class="warning-light" id="warningLight">🚨</div>
+    <div class="capacity-warning" id="capacityWarning">⚠️ CAPACITY EXCEEDED — New equipment needed!</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <label for="prodSlider">Daily Production (jars/day)</label>
+    <div class="input-row">
+      <input type="range" id="prodSlider" min="0" max="1500" value="500" step="10">
+      <input type="number" id="prodInput" min="0" max="1500" value="500">
+      <button class="btn-reset" onclick="resetProduction()">Reset</button>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="tooltip">Revenue = Jars × $4.00 selling price</div>
+      <div class="metric-label">Revenue</div>
+      <div class="metric-value" id="metricRevenue" style="color:var(--accent)">$2,000</div>
+    </div>
+    <div class="metric">
+      <div class="tooltip">Fixed costs ($2,000) + variable costs + any expansion costs</div>
+      <div class="metric-label">Total Cost</div>
+      <div class="metric-value" id="metricCost">$2,750</div>
+    </div>
+    <div class="metric">
+      <div class="tooltip">Revenue minus Total Cost. Green = profit, Red = loss</div>
+      <div class="metric-label">Profit / Loss</div>
+      <div class="metric-value profit-negative" id="metricProfit">-$750</div>
+    </div>
+    <div class="metric">
+      <div class="tooltip">Cost to produce the last 100 jars (shows cost jump at capacity)</div>
+      <div class="metric-label">Marginal Cost (last 100)</div>
+      <div class="metric-value" id="metricMarginal" style="color:var(--accent2)">$150</div>
+    </div>
+  </div>
+
+  <!-- Explainer -->
+  <div class="explainer" id="explainer">
+    <strong>📊 Marginal Cost:</strong> Each additional jar costs <strong id="mcPerJar">$1.50</strong> to produce.
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-container">
+    <canvas id="costChart"></canvas>
+  </div>
+</div>
+
+<footer>
+  MGMT 494BI | Prof. Langenkamp | UMass Isenberg | Built with Thea 🪻✨
+</footer>
+
+<script>
+const FIXED_COST = 2000;
+const VAR_COST = 1.50;
+const VAR_COST_OVERTIME = 1.75;
+const PRICE = 4.00;
+const BASE_CAPACITY = 1000;
+const MAX_CAPACITY = 1500;
+const EXPANSION_COST = 1500;
+
+const slider = document.getElementById('prodSlider');
+const input = document.getElementById('prodInput');
+const metricRevenue = document.getElementById('metricRevenue');
+const metricCost = document.getElementById('metricCost');
+const metricProfit = document.getElementById('metricProfit');
+const metricMarginal = document.getElementById('metricMarginal');
+const mcPerJar = document.getElementById('mcPerJar');
+const explainer = document.getElementById('explainer');
+const warningLight = document.getElementById('warningLight');
+const capacityWarning = document.getElementById('capacityWarning');
+const conveyorBelt = document.getElementById('conveyorBelt');
+const jarTrack = document.getElementById('jarTrack');
+const steamContainer = document.getElementById('steamContainer');
+const workersEl = document.getElementById('workers');
+
+function calcTotalCost(q) {
+  if (q <= 0) return FIXED_COST;
+  if (q <= BASE_CAPACITY) return FIXED_COST + q * VAR_COST;
+  return FIXED_COST + BASE_CAPACITY * VAR_COST + EXPANSION_COST + (q - BASE_CAPACITY) * VAR_COST_OVERTIME;
+}
+
+function calcRevenue(q) { return q * PRICE; }
+
+function calcMarginalCost100(q) {
+  if (q <= 0) return 0;
+  const lo = Math.max(0, q - 100);
+  return calcTotalCost(q) - calcTotalCost(lo);
+}
+
+function calcMarginalPerJar(q) {
+  if (q <= 0) return 0;
+  if (q <= BASE_CAPACITY) return VAR_COST;
+  if (q === BASE_CAPACITY + 1) return VAR_COST_OVERTIME + EXPANSION_COST;
+  return VAR_COST_OVERTIME;
+}
+
+function fmt(n) {
+  const neg = n < 0;
+  const s = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return neg ? `-$${s}` : `$${s}`;
+}
+
+// Chart setup
+const chartLabels = [];
+const revenueData = [];
+const costData = [];
+for (let q = 0; q <= MAX_CAPACITY; q += 10) {
+  chartLabels.push(q);
+  revenueData.push(calcRevenue(q));
+  costData.push(calcTotalCost(q));
+}
+
+const ctx = document.getElementById('costChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: chartLabels,
+    datasets: [
+      {
+        label: 'Revenue',
+        data: revenueData,
+        borderColor: '#2ecc71',
+        backgroundColor: 'rgba(46,204,113,.1)',
+        fill: true, tension: 0.1, pointRadius: 0, borderWidth: 2
+      },
+      {
+        label: 'Total Cost',
+        data: costData,
+        borderColor: '#e74c3c',
+        backgroundColor: 'rgba(231,76,60,.1)',
+        fill: true, tension: 0.1, pointRadius: 0, borderWidth: 2
+      },
+      {
+        label: 'Current Production',
+        data: [],
+        borderColor: 'var(--accent)',
+        backgroundColor: 'rgba(240,165,0,.8)',
+        pointRadius: 8, pointHoverRadius: 10,
+        showLine: false, borderWidth: 2
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#ccc' } },
+      annotation: {}
+    },
+    scales: {
+      x: {
+        title: { display: true, text: 'Jars per Day', color: '#999' },
+        ticks: { color: '#888', maxTicksLimit: 8 },
+        grid: { color: '#333' }
+      },
+      y: {
+        title: { display: true, text: 'Dollars ($)', color: '#999' },
+        ticks: { color: '#888', callback: v => '$' + v.toLocaleString() },
+        grid: { color: '#333' }
+      }
+    }
+  }
+});
+
+// Jar animation
+let jarInterval = null;
+function updateJars(q) {
+  jarTrack.innerHTML = '';
+  if (jarInterval) clearInterval(jarInterval);
+  if (q <= 0) return;
+  const speed = Math.max(0.5, 3 - (q / MAX_CAPACITY) * 2.5);
+  const freq = Math.max(200, 1200 - (q / MAX_CAPACITY) * 1000);
+  jarInterval = setInterval(() => {
+    const jar = document.createElement('div');
+    jar.className = 'jar';
+    jar.textContent = '🫙';
+    jar.style.left = '0';
+    jar.style.animationDuration = speed + 's';
+    jarTrack.appendChild(jar);
+    jar.addEventListener('animationend', () => jar.remove());
+    // Keep DOM clean
+    if (jarTrack.children.length > 15) jarTrack.firstChild.remove();
+  }, freq);
+}
+
+function updateFactory(q) {
+  // Conveyor speed
+  const beltSpeed = q <= 0 ? 0 : Math.max(0.3, 2 - (q / MAX_CAPACITY) * 1.7);
+  conveyorBelt.style.animationDuration = q <= 0 ? '999s' : beltSpeed + 's';
+
+  // Steam intensity
+  const steams = steamContainer.querySelectorAll('.steam');
+  const steamSpeed = q <= 0 ? 5 : Math.max(0.8, 2 - (q / MAX_CAPACITY) * 1.2);
+  steams.forEach(s => {
+    s.style.animationDuration = steamSpeed + 's';
+    s.style.opacity = q <= 0 ? '0' : '';
+  });
+
+  // Workers
+  const extra = q > BASE_CAPACITY;
+  if (extra && workersEl.children.length < 3) {
+    const w = document.createElement('div');
+    w.className = 'worker extra-worker';
+    w.textContent = '👷';
+    w.style.animationDelay = '.9s';
+    workersEl.appendChild(w);
+  } else if (!extra) {
+    const ew = workersEl.querySelector('.extra-worker');
+    if (ew) ew.remove();
+  }
+
+  // Window lights
+  const windows = document.querySelectorAll('.window');
+  const litCount = q <= 0 ? 0 : Math.min(5, Math.ceil(q / 300));
+  windows.forEach((w, i) => w.classList.toggle('lit', i < litCount));
+
+  // Warning
+  const exceeded = q > BASE_CAPACITY;
+  warningLight.classList.toggle('active', exceeded);
+  capacityWarning.classList.toggle('active', exceeded);
+
+  updateJars(q);
+}
+
+function update(q) {
+  q = Math.max(0, Math.min(MAX_CAPACITY, Math.round(q)));
+  slider.value = q;
+  input.value = q;
+
+  const rev = calcRevenue(q);
+  const cost = calcTotalCost(q);
+  const profit = rev - cost;
+  const mc100 = calcMarginalCost100(q);
+  const mcJar = calcMarginalPerJar(q);
+
+  metricRevenue.textContent = fmt(rev);
+  metricCost.textContent = fmt(cost);
+  metricProfit.textContent = fmt(profit);
+  metricProfit.className = 'metric-value ' + (profit >= 0 ? 'profit-positive' : 'profit-negative');
+  metricMarginal.textContent = q > 0 ? fmt(mc100) : '$0';
+
+  if (q <= 0) {
+    mcPerJar.textContent = '$0.00';
+    explainer.innerHTML = '<strong>📊 Marginal Cost:</strong> Produce some jars to see the economics!';
+  } else if (q <= BASE_CAPACITY) {
+    mcPerJar.textContent = '$' + VAR_COST.toFixed(2);
+    explainer.innerHTML = `<strong>📊 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST.toFixed(2)}</strong> to produce. You're within base capacity — no extra equipment needed.`;
+  } else {
+    mcPerJar.textContent = '$' + VAR_COST_OVERTIME.toFixed(2);
+    explainer.innerHTML = `<strong>🚨 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST_OVERTIME.toFixed(2)}</strong> (overtime rate!) plus a one-time <strong>$${EXPANSION_COST.toLocaleString()}</strong> equipment expansion cost. This is the capacity jump!`;
+  }
+
+  // Update chart marker
+  chart.data.datasets[2].data = [
+    { x: q, y: rev },
+    { x: q, y: cost }
+  ];
+  // Use parsed x values
+  chart.options.parsing = { xAxisKey: 'x', yAxisKey: 'y' };
+  // Fix: set point data with index-based for the scatter points
+  const idx = chartLabels.indexOf(q) !== -1 ? chartLabels.indexOf(q) : -1;
+  if (idx >= 0) {
+    const pointData = new Array(chartLabels.length).fill(null);
+    chart.data.datasets[2].data = pointData;
+    // Revenue point
+    chart.data.datasets[2].data = chartLabels.map((l) => l === q ? calcRevenue(l) : null);
+  } else {
+    chart.data.datasets[2].data = chartLabels.map(() => null);
+  }
+  // Add cost point as separate handling — simpler: use two scatter points
+  // Actually let's use a simpler approach: vertical line plugin
+  chart.options.plugins.verticalLine = q;
+  chart.update('none');
+
+  updateFactory(q);
+}
+
+// Vertical line plugin
+const verticalLinePlugin = {
+  id: 'verticalLine',
+  afterDraw(chart) {
+    const q = chart.options.plugins.verticalLine;
+    if (q == null || q <= 0) return;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+    const x = xScale.getPixelForValue(q);
+    if (x < xScale.left || x > xScale.right) return;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = 'rgba(240,165,0,.7)';
+    ctx.lineWidth = 2;
+    ctx.moveTo(x, yScale.top);
+    ctx.lineTo(x, yScale.bottom);
+    ctx.stroke();
+
+    // Draw dots for revenue and cost
+    const rev = calcRevenue(q);
+    const cost = calcTotalCost(q);
+    [{ val: rev, color: '#2ecc71' }, { val: cost, color: '#e74c3c' }].forEach(({ val, color }) => {
+      const y = yScale.getPixelForValue(val);
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // Label
+    ctx.fillStyle = 'rgba(240,165,0,.9)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(q + ' jars', x, yScale.top - 6);
+    ctx.restore();
+  }
+};
+Chart.register(verticalLinePlugin);
+
+// Also remove the scatter dataset since we draw manually
+chart.data.datasets[2].data = [];
+chart.update('none');
+
+// Event listeners
+slider.addEventListener('input', () => update(Number(slider.value)));
+input.addEventListener('input', () => {
+  let v = parseInt(input.value);
+  if (isNaN(v)) v = 0;
+  update(v);
+});
+
+function resetProduction() {
+  update(0);
+}
+
+// Initial
+update(500);
+</script>
+</body>
+</html>
