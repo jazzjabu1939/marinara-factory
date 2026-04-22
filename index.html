@@ -244,9 +244,17 @@
 <header>
   <h1>🍅 <span>Marinara Factory</span> 🏭</h1>
   <p>Marginal Cost Simulator — How many jars should you produce?</p>
+  <button id="modeToggle" onclick="toggleMode()" style="margin-top:.5rem; background:#444; color:#fff; border:1px solid #888; padding:.3rem .8rem; border-radius:6px; cursor:pointer; font-size:.8rem;">⚙️ Switch to Simple Mode</button>
 </header>
 
 <div class="container">
+  <!-- Simple Mode Panel (hidden by default) -->
+  <div id="simpleMode" style="display:none; background:#16213e; border:2px solid #f0a500; border-radius:12px; padding:1.5rem; margin-bottom:1rem; text-align:center;">
+    <div style="font-size:4rem; margin-bottom:.5rem;">🍅🏭</div>
+    <div style="font-size:1.1rem; color:#f0a500; font-weight:bold;">MARINARA CO. — Simple Mode</div>
+    <div style="margin-top:1rem; font-size:.9rem; color:#aaa;">Animation disabled — all numbers and equations still update live below.</div>
+  </div>
+
   <!-- Factory Animation -->
   <div class="factory-scene" id="factoryScene">
     <div class="factory-bg"></div>
@@ -335,6 +343,15 @@
 </footer>
 
 <script>
+// Mode toggle
+let simpleMode = false;
+function toggleMode() {
+  simpleMode = !simpleMode;
+  document.getElementById('factoryScene').style.display = simpleMode ? 'none' : 'block';
+  document.getElementById('simpleMode').style.display = simpleMode ? 'block' : 'none';
+  document.getElementById('modeToggle').textContent = simpleMode ? '⚙️ Switch to Animated Mode' : '⚙️ Switch to Simple Mode';
+}
+
 const FIXED_COST = 2000;
 const VAR_COST = 1.50;
 const VAR_COST_OVERTIME = 1.75;
