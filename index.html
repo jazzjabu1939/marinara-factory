@@ -52,7 +52,7 @@
   }
   /* Building */
   .building {
-    position: absolute; bottom: 40px; left: 10%; width: 35%; height: 120px;
+    position: absolute; bottom: 40px; left: 4%; width: 38%; height: 120px;
     background: #2a2a4a; border-radius: 8px 8px 0 0;
     border: 2px solid #444;
   }
@@ -79,7 +79,7 @@
   .w5 { bottom: 55px; left: 45%; }
 
   /* Steam */
-  .steam-container { position: absolute; top: 0; left: 22%; width: 60px; height: 80px; }
+  .steam-container { position: absolute; top: 0; left: 18%; width: 60px; height: 80px; }
   .steam {
     position: absolute; bottom: 0; width: 14px; height: 14px;
     background: rgba(200,200,200,.3); border-radius: 50%;
@@ -95,7 +95,7 @@
 
   /* Conveyor */
   .conveyor {
-    position: absolute; bottom: 30px; left: 45%; right: 5%;
+    position: absolute; bottom: 30px; left: 42%; right: 4%;
     height: 12px; background: #444; border-radius: 6px;
     border: 1px solid #555; overflow: hidden;
   }
@@ -110,7 +110,7 @@
 
   /* Jars on conveyor */
   .jar-track {
-    position: absolute; bottom: 42px; left: 45%; right: 5%;
+    position: absolute; bottom: 42px; left: 42%; right: 4%;
     height: 30px; overflow: hidden;
   }
   .jar {
@@ -120,11 +120,11 @@
   @keyframes jar-move {
     0% { transform: translateX(0); opacity: 1; }
     90% { opacity: 1; }
-    100% { transform: translateX(calc(100vw * .4)); opacity: 0; }
+    100% { transform: translateX(500px); opacity: 0; }
   }
 
   /* Workers */
-  .workers { position: absolute; bottom: 42px; left: 12%; display: flex; gap: 18px; }
+  .workers { position: absolute; bottom: 42px; left: 6%; display: flex; gap: 18px; }
   .worker { font-size: 1.3rem; animation: worker-bob 1s ease-in-out infinite alternate; }
   .worker:nth-child(2) { animation-delay: .3s; }
   .worker:nth-child(3) { animation-delay: .6s; }
@@ -152,6 +152,23 @@
     opacity: 0; transition: opacity .3s; white-space: nowrap;
   }
   .capacity-warning.active { opacity: 1; animation: flash-warn .5s ease-in-out infinite alternate; }
+
+  /* Capacity exceeded banner (below factory scene) */
+  .capacity-banner {
+    display: none;
+    background: var(--red);
+    color: #fff;
+    text-align: center;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    animation: flash-warn .5s ease-in-out infinite alternate;
+    border: 2px solid #ff6b6b;
+    box-shadow: 0 0 20px rgba(231,76,60,.4);
+  }
+  .capacity-banner.active { display: block; }
 
   /* Controls */
   .controls {
@@ -234,8 +251,11 @@
     .factory-scene { height: 160px; }
     .metrics { grid-template-columns: 1fr 1fr; }
     .metric-value { font-size: 1.2rem; }
-    .building { left: 3%; width: 40%; }
-    .conveyor, .jar-track { left: 43%; }
+    .building { left: 2%; width: 38%; height: 100px; }
+    .conveyor, .jar-track { left: 40%; right: 3%; }
+    .workers { left: 4%; gap: 10px; }
+    .steam-container { left: 15%; }
+    .capacity-banner { font-size: 1rem; padding: .75rem 1rem; }
   }
 </style>
 </head>
@@ -282,12 +302,15 @@
     <div class="capacity-warning" id="capacityWarning">⚠️ CAPACITY EXCEEDED — New equipment needed!</div>
   </div>
 
+  <!-- Capacity Banner (outside factory scene, not clipped) -->
+  <div class="capacity-banner" id="capacityBanner">🚨 CAPACITY EXCEEDED — New equipment & overtime required!</div>
+
   <!-- Controls -->
   <div class="controls">
     <label for="prodSlider">Daily Production (jars/day)</label>
     <div class="input-row">
-      <input type="range" id="prodSlider" min="0" max="1500" value="500" step="10">
-      <input type="number" id="prodInput" min="0" max="1500" value="500">
+      <input type="range" id="prodSlider" min="0" max="1500" value="0" step="10">
+      <input type="number" id="prodInput" min="0" max="1500" value="0">
       <button class="btn-reset" onclick="resetProduction()">Reset</button>
     </div>
   </div>
@@ -370,6 +393,7 @@ const mcPerJar = document.getElementById('mcPerJar');
 const explainer = document.getElementById('explainer');
 const warningLight = document.getElementById('warningLight');
 const capacityWarning = document.getElementById('capacityWarning');
+const capacityBanner = document.getElementById('capacityBanner');
 const conveyorBelt = document.getElementById('conveyorBelt');
 const jarTrack = document.getElementById('jarTrack');
 const steamContainer = document.getElementById('steamContainer');
@@ -520,6 +544,7 @@ function updateFactory(q) {
   const exceeded = q > BASE_CAPACITY;
   warningLight.classList.toggle('active', exceeded);
   capacityWarning.classList.toggle('active', exceeded);
+  capacityBanner.classList.toggle('active', exceeded);
 
   updateJars(q);
 }
@@ -549,15 +574,15 @@ function update(q) {
   } else if (q <= BASE_CAPACITY) {
     mcPerJar.textContent = '$' + VAR_COST.toFixed(2);
     explainer.innerHTML = `<strong>📊 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST.toFixed(2)}</strong> to produce. You're within base capacity — no extra equipment needed.`;
-    document.getElementById('eqQty').textContent = qty;
+    document.getElementById('eqQty').textContent = q;
     document.getElementById('eqBreakdown').style.color = '#2ecc71';
-    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + ($1.50 × ${qty}) = <strong>$${totalCost.toLocaleString()}</strong>`;
+    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + ($1.50 × ${q}) = <strong>$${cost.toLocaleString()}</strong>`;
   } else {
     mcPerJar.textContent = '$' + VAR_COST_OVERTIME.toFixed(2);
     explainer.innerHTML = `<strong>🚨 Marginal Cost:</strong> Each additional jar costs <strong>$${VAR_COST_OVERTIME.toFixed(2)}</strong> (overtime rate!) plus a one-time <strong>$${EXPANSION_COST.toLocaleString()}</strong> equipment expansion cost. This is the capacity jump!`;
-    document.getElementById('eqQty').textContent = qty;
+    document.getElementById('eqQty').textContent = q;
     document.getElementById('eqBreakdown').style.color = '#e74c3c';
-    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + $1,500 + ($1.75 × ${qty}) = <strong>$${totalCost.toLocaleString()}</strong><br><em>Fixed + Expansion + Variable (overtime rate)</em>`;
+    document.getElementById('eqBreakdown').innerHTML = `TC = $2,000 + $1,500 + ($1.75 × ${q}) = <strong>$${cost.toLocaleString()}</strong><br><em>Fixed + Expansion + Variable (overtime rate)</em>`;
   }
 
   // Update chart marker
